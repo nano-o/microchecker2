@@ -13,7 +13,12 @@ class SimpleModelChecker[S,L] extends ModelChecker[S,L] {
       sopt match {
         case None => throw new RuntimeException("could not find any element in a non-empty set, something's weird...")
         case Some(s) => { // TODO: constraints
-          val sucs = lts.successors(s) map { case (l,s) => s } filter { s => !unexplored.contains(s) & !explored.contains(s) }
+          var sucs = lts.successors(s) map { case (l,s) => s } filter { s => 
+              val seen = !unexplored.contains(s) & !explored.contains(s)
+              val constraints = !(lts.constraints map { c => c(s) } contains false) 
+              constraints & seen
+            }
+          
           lts.invariants foreach {i =>
             if (!i(s)) {
               throw new RuntimeException("Invariant violated: " + s)
