@@ -1,8 +1,10 @@
 package microchecker
 
 import scala.collection.mutable
+import scala.collection.mutable.Queue
 import scala.collection.mutable.HashSet
 import collection.mutable.HashMap
+import scala.util.control._
 
 class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker[S, L] 
 {
@@ -103,37 +105,72 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
         case Error(n) => {
           logger.log("The number of total states = " + statesMap.size)
           
-          return Some(dijkstra(n))
+          return Some(bfs(n))
         } 
       }
     }
     None
   }
   
-  val stack = new scala.collection.mutable.Stack[S] 
-  
-//  def printTrace(n: Int) : Unit = 
-//  {
-//    if(transitMap.contains(n))
-//    {
-//      if(!stack.contains(n))
-//      {
-//        stack.push(indexMap(n))
-//        logger.log(printState(n, indexMap(n)));
-//        var transitSet = transitMap.getOrElse(n, Set())
-//        transitSet foreach { case (l, index) =>
-//          {
-//            logger.log("  ->->->->->->->->->->->->->->->-> lable:" + l + " ->->->->->->->->->->->->->->->->");
-//            printTrace(index);
-//          }
-//        }
-//      }
-//    }
-//    else
-//    {
-//      logger.log(printState(n, indexMap(n)))
-//    }
-//  }
+  def bfs(n: Int) : (S,List[(L,S)]) = 
+  {
+    var path = new Array[Int](n + 1)
+    
+    var queue = new Queue[Int];
+    var visited = new Array[Boolean](n + 1)
+    for (i <- 0 to n) 
+    {
+      path(i) = -1;
+      visited(i) = false;
+    }
+    
+    queue.enqueue(n)
+    visited(n) = true;
+    
+    var from = 0
+    var mid = 0;
+    var to = 0;
+    
+    val loop = new Breaks;
+    loop.breakable 
+    {
+      while (!queue.isEmpty)
+  	  {
+        mid = queue.dequeue()
+        var stransit = transitMap.getOrElse(mid, Set())
+        stransit foreach {
+          case (label, sID) =>
+            {
+              if (sID < initStateNum)
+              {
+                path(sID) = mid
+                from = sID
+                loop.break;
+              }
+              if(!visited(sID))
+              {
+                path(sID) = mid
+                queue.enqueue(sID)
+                visited(sID) = true;
+              }
+            }
+        }
+      }
+    }
+    
+    // get the trace as a list.
+    var result = List[(L,S)]()
+    
+    mid = from;
+    while(to != n)
+    {
+      to = path(mid);
+      result = result ::: List((transitLabel(mid, to), indexMap(to)))
+      mid = to;
+    }
+    
+    (indexMap(from),result)
+  }
   
   def transitContains(i: Int, j: Int) : Boolean = 
   {
@@ -161,11 +198,7 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
     throw new RuntimeException("should have found the label")
   }
   
-  def dfs(n: Int) = {
-    
-  }
-  
-  // Apply Dijksrta's single-source shortest-path algorithm to find the shortest path from the error state to an initial state.
+  // Apply Dijkstra's single-source shortest-path algorithm to find the shortest path from the error state to an initial state.
   // n is the index of the error state.
   // we return an array of indices forming a linked list whose head is at position n (the array starts at 0).
   // this linked list is the error trace (in reverse order)
