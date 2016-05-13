@@ -240,7 +240,7 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
     {
       from = stack.top;
       println("--------------------------------------------------------------------------------------------------------------------------------------------")
-      printState(from, indexMap(from));
+      logger.log(printState(from, indexMap(from)))
       stack.pop();
       if(!stack.isEmpty)
       {
