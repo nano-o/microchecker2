@@ -19,7 +19,7 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
       !(lts.constraints map { c => c(s) } contains false) & !statesMap.contains(s)
   
   abstract class ExitStatus
-  case object Error extends ExitStatus
+  case class Error(s : Int) extends ExitStatus
   case object Ok extends ExitStatus
   case object Finished extends ExitStatus
   
@@ -59,8 +59,7 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
           }
         }
         if (!checkInvariants(n)) {
-          statesMap.get(n) match { case Some(n_) => printTrace(n_) }
-          return Error
+          statesMap.get(n) match { case Some(n_) => return Error(n_) }
         }
       }
     }
@@ -76,7 +75,7 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
     true
   }
   
-  def check : Boolean = 
+  override def check : Option[(S,List[(L,S)])] = 
   {
     // add initial states to unexplored queue
     val initStates = lts.initialStates filter filterStateP
@@ -87,7 +86,7 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
     initStates foreach { case s => {
     	if (!checkInvariants(s)) {
     		logger.log(printState(stateNum, s))
-    		return false
+    		return Some(s,List())
     	}
     	statesMap += (s -> stateNum)
     			logger.debug("Initial state added:" + printState(stateNum, s))
@@ -99,16 +98,16 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
         case Ok => ()
         case Finished => {
           logger.log("The number of total states = " + statesMap.size)
-          return true
+          return None
         }
-        case Error =>{
+        case Error(n) => {
           logger.log("The number of total states = " + statesMap.size)
-          return false
+          
+          return Some(dijkstra(n))
         } 
       }
     }
-    
-    true
+    None
   }
   
   val stack = new scala.collection.mutable.Stack[S] 
@@ -149,17 +148,17 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
     false
   }
   
-  def transitLable(i: Int, j: Int) : Option[L] = 
+  def transitLabel(i: Int, j: Int) : L = 
   {
     val stransit = transitMap.getOrElse(j, Set())
     stransit foreach {
       case (lable, index) =>
         {
           if(i == index)
-            return Some(lable)
+            return lable
         }
     }
-    return None
+    throw new RuntimeException("should have found the label")
   }
   
   def dfs(n: Int) = {
@@ -171,7 +170,7 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
   // we return an array of indices forming a linked list whose head is at position n (the array starts at 0).
   // this linked list is the error trace (in reverse order)
   // see: https://en.wikipedia.org/wiki/Dijkstra's_algorithm
-  def dijkstra(n : Int) : Array[Int] = {
+  def dijkstra(n : Int) : (S,List[(L,S)]) = {
     var path = new Array[Int](n + 1) // path
     var dist = new Array[Int](n + 1) // distance
     var visited = new Array[Boolean](n + 1)
@@ -215,21 +214,14 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
         }
       }
     }
-    path
-  }
-  
-  // n is the id of the error state to print the trace for.
-  def printTrace(n: Int) = 
-  {
-    val path = dijkstra(n)
+    
+    // get the trace as a list.
+    var result = List[(L,S)]()
     var from = 0
     var mid = 0
-    println("=================================================================================================================================")
-    println("Error in state: " + n)
-    
+    var to = n;
     // we use a stack to reverse the linked-list representing the trace.
     val stack = new scala.collection.mutable.Stack[Int] 
-    var to = n;
     while(to != 0)
     {
       stack.push(to);
@@ -239,15 +231,29 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
     while(!stack.isEmpty)
     {
       from = stack.top;
-      println("--------------------------------------------------------------------------------------------------------------------------------------------")
-      logger.log(printState(from, indexMap(from)))
       stack.pop();
       if(!stack.isEmpty)
       {
         mid = stack.top;
-        println("  ->->->->->->->->->->->->->->->-> msg:" + transitLable(from, mid) + " ->->->->->->->->->->->->->->->->");
+        result = result ::: List((transitLabel(from, mid),indexMap(mid)))
       }
     }
+    
+    (indexMap(to),result)
+  }
+  
+  override def printTrace( trace : (S,List[(L,S)]) ) = 
+  {
+    println("=================================================================================================================================")
+    println("Error in state: " + trace._2.last._2)
+    
+    logger.log("--------------------------------------------------------------------------------------------------------------------------------------------")
+    logger.log(trace._1.toString)
+    
+    trace._2 foreach { case (l,s) => {
+      logger.log("  ->->->->->->->->->->->->->->->-> msg:" + l + " ->->->->->->->->->->->->->->->->");
+      logger.log(s.toString)
+    } }
   }
   
   def printState(id: Int, node: S) : String = 
