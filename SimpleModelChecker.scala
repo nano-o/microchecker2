@@ -22,7 +22,7 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
   case object Error extends ExitStatus
   case object Ok extends ExitStatus
   case object Finished extends ExitStatus
-      
+  
   def dequeueState : ExitStatus = {
     val s = unexplored.find(_ => true) match { 
       case Some(s_) => s_
@@ -111,22 +111,142 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
     true
   }
   
-  def printTrace(n: Int) : Unit = 
+  val stack = new scala.collection.mutable.Stack[S] 
+  
+//  def printTrace(n: Int) : Unit = 
+//  {
+//    if(transitMap.contains(n))
+//    {
+//      if(!stack.contains(n))
+//      {
+//        stack.push(indexMap(n))
+//        logger.log(printState(n, indexMap(n)));
+//        var transitSet = transitMap.getOrElse(n, Set())
+//        transitSet foreach { case (l, index) =>
+//          {
+//            logger.log("  ->->->->->->->->->->->->->->->-> lable:" + l + " ->->->->->->->->->->->->->->->->");
+//            printTrace(index);
+//          }
+//        }
+//      }
+//    }
+//    else
+//    {
+//      logger.log(printState(n, indexMap(n)))
+//    }
+//  }
+  
+  def transitContains(i: Int, j: Int) : Boolean = 
   {
-    if(transitMap.contains(n))
-    {
-      logger.log(printState(n, indexMap(n)));
-      var transitSet = transitMap.getOrElse(n, Set())
-      transitSet foreach { case (l, index) =>
+    val stransit = transitMap.getOrElse(j, Set())
+    stransit foreach {
+      case (lable, index) =>
         {
-          logger.log("  ->->->->->->->->->->->->->->->-> lable:" + l + " ->->->->->->->->->->->->->->->->");
-          printTrace(index);
+          if(i == index)
+            return true
+        }
+    }
+    false
+  }
+  
+  def transitLable(i: Int, j: Int) : Option[L] = 
+  {
+    val stransit = transitMap.getOrElse(j, Set())
+    stransit foreach {
+      case (lable, index) =>
+        {
+          if(i == index)
+            return Some(lable)
+        }
+    }
+    return None
+  }
+  
+  def dfs(n: Int) = {
+    
+  }
+  
+  // Apply Dijksrta's single-source shortest-path algorithm to find the shortest path from the error state to an initial state.
+  // n is the index of the error state.
+  // we return an array of indices forming a linked list whose head is at position n (the array starts at 0).
+  // this linked list is the error trace (in reverse order)
+  // see: https://en.wikipedia.org/wiki/Dijkstra's_algorithm
+  def dijkstra(n : Int) : Array[Int] = {
+    var path = new Array[Int](n + 1) // path
+    var dist = new Array[Int](n + 1) // distance
+    var visited = new Array[Boolean](n + 1)
+    
+    for (i <- 0 to n) 
+    {
+      if(transitContains(0, i) && i != 0)
+      {
+        dist(i) = 1
+        path(i) = 0
+      }
+      else
+      {
+        dist(i) = Inf
+        path(i) = -1
+      }
+      visited(i) = false;
+    }
+    path(0) = 0;
+    dist(0) = 0;
+    visited(0) = true;
+    for(i <- 1 to n)
+    {
+      var min = Inf;
+      var u = 0;
+      for(j <- 0 to n)
+      {
+        if(!visited(j) && dist(j) < min)
+        {
+          min = dist(j);
+          u = j;
+        }
+      }
+      visited(u) = true;
+      for(k <- 0 to n)
+      {
+        if(!visited(k) && transitContains(u, k) && min + 1 < dist(k))
+        {
+          dist(k) = min + 1;
+          path(k) = u;
         }
       }
     }
-    else
+    path
+  }
+  
+  // n is the id of the error state to print the trace for.
+  def printTrace(n: Int) = 
+  {
+    val path = dijkstra(n)
+    var from = 0
+    var mid = 0
+    println("=================================================================================================================================")
+    println("Error in state: " + n)
+    
+    // we use a stack to reverse the linked-list representing the trace.
+    val stack = new scala.collection.mutable.Stack[Int] 
+    var to = n;
+    while(to != 0)
     {
-      logger.log(printState(n, indexMap(n)))
+      stack.push(to);
+      to = path(to);
+    }
+    stack.push(to);
+    while(!stack.isEmpty)
+    {
+      from = stack.top;
+      println("--------------------------------------------------------------------------------------------------------------------------------------------")
+      printState(from, indexMap(from));
+      stack.pop();
+      if(!stack.isEmpty)
+      {
+        mid = stack.top;
+        println("  ->->->->->->->->->->->->->->->-> msg:" + transitLable(from, mid) + " ->->->->->->->->->->->->->->->->");
+      }
     }
   }
   
