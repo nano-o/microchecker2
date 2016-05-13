@@ -31,8 +31,16 @@ class State(p: Process)
   var step1 = 0;
   var step2 = 0;
   
-  def copy(flag1 : Boolean = flag1, flag2 : Boolean = flag2, turn : Process = turn, step1 : Int = step1, step2 : Int = step2)
-    = new State(turn)
+  def copy(flag1 : Boolean = flag1, flag2 : Boolean = flag2, turn : Process = turn, step1 : Int = step1, step2 : Int = step2) : State = 
+  {
+    var newState = new State(this.turn)
+    newState.flag1 = this.flag1
+    newState.flag2 = this.flag2
+    newState.turn = this.turn
+    newState.step1 = this.step1
+    newState.step2 = this.step2
+    newState
+  }
   
   def canEqual(other: Any) = other.isInstanceOf[State]
   
@@ -86,6 +94,11 @@ class PetersonLTS extends LTS[State, Unit]
     if(step == 4)
     {
       p.setFlag(newState, false)
+      p.setStep(newState, 5)
+    }
+    if(step == 5)
+    {
+      p.setStep(newState, 0)
     }
     
     val trans = ((),newState) 

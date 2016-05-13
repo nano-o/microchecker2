@@ -4,174 +4,136 @@ import scala.collection.mutable
 import scala.collection.mutable.HashSet
 import collection.mutable.HashMap
 
-class SimpleModelChecker[S, L] extends ModelChecker[S, L] 
+class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker[S, L] 
 {
+  val logger : Logger = l
   val Inf = Int.MaxValue
-  var stateNum = 0;
-  var statesMap = new HashMap[S, Int]()
-  var transitMap = new HashMap[(Int, Int), L]()
+  var stateNum = 0; // used to give an index to new states
+  var statesMap = new HashMap[S, Int]() // state to index
+  var transitMap = new HashMap[Int, mutable.Set[(L,Int)]]() // the _inverse_ transition relation uncovered so far
   var initStateNum = 0;
+  val unexplored : mutable.Set[S] = mutable.Set()
+  val lts : LTS[S,L] = lts_
   
-  def addInitStates(sSet: Set[S], lts: LTS[S,L]) = 
-  {
-    var sset = sSet;
-    while(!sset.isEmpty)
-    {
-      val lsopt = sset.find(_ => true)
-      lsopt match {
-        case Some(s) =>
-          {
-            if(!(lts.constraints map { c => c(s) } contains false))
-            {
-              statesMap += (s -> stateNum);
-              stateNum += 1;
-              initStateNum += 1;
-            }
-            sset -= s
+  def filterStateP(s : S) = 
+      !(lts.constraints map { c => c(s) } contains false) & !statesMap.contains(s)
+  
+  abstract class ExitStatus
+  case object Error extends ExitStatus
+  case object Ok extends ExitStatus
+  case object Finished extends ExitStatus
+      
+  def dequeueState : ExitStatus = {
+    val s = unexplored.find(_ => true) match { 
+      case Some(s_) => s_
+      case None => return Finished 
+    }
+    val sId = statesMap.get(s) match {
+      case Some(id) => id
+      case None => throw new RuntimeException("should not happen")
+    }
+    // set of successor transitions:
+    val trs = lts.successors(s) filter { case (l,s) => filterStateP(s) }
+    
+    // add successor states to the queue of unepxlored states
+    unexplored ++= trs map { case (l,s) => s }
+    
+    // give an id to each successor state and add the corresponding transition to the transition map
+    trs foreach { 
+      case (l, n) => {
+        if (!statesMap.contains(n)) 
+        {
+          statesMap += (n -> stateNum)
+          logger.debug(printState(stateNum, n))
+          transitMap += (stateNum -> mutable.Set((l, sId)));
+          stateNum += 1
+        }
+        else {
+          statesMap.get(n) match {
+            case Some(x) => 
+                transitMap.get(x) match {
+                  case Some(stransit) => stransit += new Tuple2(l, sId)
+                  case None => transitMap += (x -> mutable.Set((l, sId)))
+                }
+            case None => throw new RuntimeException("should not happen")
           }
-        case None => throw new RuntimeException("There are non element in the initial state set")
+        }
+        if (!checkInvariants(n)) {
+          statesMap.get(n) match { case Some(n_) => printTrace(n_) }
+          return Error
+        }
       }
     }
+    
+    // remove s from the queue of unexplored states
+    unexplored -= s
+    
+    Ok
   }
   
-  def addNewStates(sID: Int, state: S, lsSet: Set[(L,S)], lts: LTS[S,L]) : Set[S] = 
-  {
-    var sSet = Set[S]()
-    var lsS = lsSet;
-    while(!lsS.isEmpty)
-    {
-      val lsopt = lsS.find(_ => true)
-      lsopt match {
-        case Some((l,s)) =>
-          {
-            if(!statesMap.contains(s) & !(lts.constraints map { c => c(s) } contains false) )
-            {
-              statesMap += (s -> stateNum);
-              transitMap += ((sID, stateNum) -> l)
-              stateNum += 1;
-              sSet += s;
-            }
-            val ls = (l,s)
-            lsS -= ls
-          }
-        case None => throw new RuntimeException("There are non element in the label-state set")
-      }
-    }
-    sSet
+  def checkInvariants(s : S) : Boolean = {
+    lts.invariants foreach { inv => if (!inv(s)) return false }
+    true
   }
   
-  def check(lts: LTS[S,L]) : Unit = 
+  def check : Boolean = 
   {
-    val unexplored : mutable.Set[S] = mutable.Set();
-    val initStates = lts.initialStates
+    // add initial states to unexplored queue
+    val initStates = lts.initialStates filter filterStateP
     unexplored ++= initStates
     
-    addInitStates(initStates, lts)
-    
-    while (!unexplored.isEmpty) 
-    {
-      val sopt = unexplored.find(_ => true)
-      sopt match 
-      {
-        case None => throw new RuntimeException("could not find any element in a non-empty set, something's weird...")
-        case Some(s) => 
-          {
-            val sID = statesMap.getOrElse(s, 0)
-            
-            lts.invariants foreach {i =>
-              if (!i(s)) {
-                printTrace(sID)
-                throw new RuntimeException("Invariant violated: " + s)
-              }
-            }
-            
-            var sucls = lts.successors(s)
-            var sucs = addNewStates(sID, s, sucls, lts)
-            unexplored ++= sucs
-            unexplored -= s
-          }
-      }
-    }
-  }
-  
-  //print out the path from the initial state to the error state
-  def printTrace(n: Int) = 
-  {
-    var path = new Array[Int](n + 1)
-    var dist = new Array[Int](n + 1)
-    var visited = new Array[Boolean](n + 1)
-    
-    for (i <- 0 to n) 
-    {
-      if(transitMap.contains(0, i) && i != 0)
-      {
-        dist(i) = 1
-        path(i) = 0
-      }
-      else
-      {
-        dist(i) = Inf
-        path(i) = -1
-      }
-      visited(i) = false;
-    }
-    path(0) = 0;
-    dist(0) = 0;
-    visited(0) = true;
-    for(i <- 1 to n)
-    {
-      var min = Inf;
-      var u = 0;
-      for(j <- 0 to n)
-      {
-        if(!visited(j) && dist(j) < min)
-        {
-          min = dist(j);
-          u = j;
-        }
-      }
-      visited(u) = true;
-      for(k <- 0 to n)
-      {
-        if(!visited(k) && transitMap.contains((u, k)) && min + 1 < dist(k))
-        {
-          dist(k) = min + 1;
-          path(k) = u;
-        }
-      }
-    }
 
-    var from = 0
-    var mid = 0
-    println("=================================================================================================================================")
-    println("Error in state: " + n)
+    // assign an identifier to each initial state
+    initStates foreach { case s => {
+    	if (!checkInvariants(s)) {
+    		logger.log(printState(stateNum, s))
+    		return false
+    	}
+    	statesMap += (s -> stateNum)
+    			logger.debug("Initial state added:" + printState(stateNum, s))
+    			stateNum += 1
+    } }
     
-    val stack = new scala.collection.mutable.Stack[Int] 
-    var to = n;
-    while(to > initStateNum)
-    {
-      stack.push(to);
-      to = path(to);
-    }
-    stack.push(to);
-    while(!stack.isEmpty)
-    {
-      from = stack.top;
-      println("--------------------------------------------------------------------------------------------------------------------------------------------")
-      printState(from, indexMap(from));
-      stack.pop();
-      if(!stack.isEmpty)
-      {
-        mid = stack.top;
-        println("  ->->->->->->->->->->->->->->->-> lable:" + transitMap((from, mid)) + " ->->->->->->->->->->->->->->->->");
+    while (true) {
+      dequeueState match {
+        case Ok => ()
+        case Finished => {
+          logger.log("The number of total states = " + statesMap.size)
+          return true
+        }
+        case Error =>{
+          logger.log("The number of total states = " + statesMap.size)
+          return false
+        } 
       }
+    }
+    
+    true
+  }
+  
+  def printTrace(n: Int) : Unit = 
+  {
+    if(transitMap.contains(n))
+    {
+      logger.log(printState(n, indexMap(n)));
+      var transitSet = transitMap.getOrElse(n, Set())
+      transitSet foreach { case (l, index) =>
+        {
+          logger.log("  ->->->->->->->->->->->->->->->-> lable:" + l + " ->->->->->->->->->->->->->->->->");
+          printTrace(index);
+        }
+      }
+    }
+    else
+    {
+      logger.log(printState(n, indexMap(n)))
     }
   }
   
-  def printState(id: Int, node: S) = 
+  def printState(id: Int, node: S) : String = 
   {
-    println("state: " + id)
-    println(node)
+    "state: " + id + "\n" +
+    node.toString
   }
   
     //Search for the node with its index

@@ -17,6 +17,6 @@ class TestLTS(b:Int) extends LTS[Int, Unit]{
   
   override def invariants = Set(s => s <= bound, s => s <= bound - 1);
   
-  override def constraints = Set(s => s < 4);
+  override def constraints = Set(s => s < 4);//Example2
   
 }

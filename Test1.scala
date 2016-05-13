@@ -23,10 +23,11 @@ class Test1 extends FlatSpec with Matchers {
 	}
 	
 	"The model checker" should "find invariant violations" in {
-		val myMC = new SimpleModelChecker[Int, Unit]();
-		val myLTS : LTS[Int, Unit] = new TestLTS1(3);
+	  val myLTS : LTS[Int, Unit] = new TestLTS1(3);
+    val l : Logger = new Logger(true)
+		val myMC = new SimpleModelChecker[Int, Unit](myLTS,l);
 		intercept[RuntimeException] {
-			myMC.check(myLTS)
+			myMC.check
 		}
 	}
 }
@@ -52,8 +53,10 @@ class Test1 extends FlatSpec with Matchers {
 		}
 
 		"The model checker" should "not find invariant violations that do not exist" in {
-			val myMC = new SimpleModelChecker[Int, Unit]();
-			val myLTS : LTS[Int, Unit] = new TestLTS2(3);
-			myMC.check(myLTS)
+		  val myLTS : LTS[Int, Unit] = new TestLTS2(3);
+		  
+      val l : Logger = new Logger(true)
+			val myMC = new SimpleModelChecker[Int, Unit](myLTS,l);
+			myMC.check
 		}
 }
