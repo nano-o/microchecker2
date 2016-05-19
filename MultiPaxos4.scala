@@ -159,8 +159,10 @@ final case class finfun_update_code[A, B](a: finfun[A, B], b: A, c: B) extends
   override def hashCode : Int =   41 * ( 41 + finfun_constv(this).hashCode()) + finfun_to_set(this).hashCode()
 }
 
+
 def finfun_to_set[A, B](x0: finfun[A, B]): Set[(A,B)] = x0 match {
-  case finfun_update_code(f, a, b) => (if (eq[B](b, finfun_constv[A, B](f)))
+  case finfun_update_code(f, a, b) => (
+    if (eq[B](b, finfun_constv[A, B](f)))
       finfun_to_set[A, B](f) - Tuple2(a,b)
     else
       finfun_to_set[A, B](f)) + Tuple2(a,b)
