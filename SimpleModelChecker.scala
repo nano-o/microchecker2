@@ -278,13 +278,15 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
   override def printTrace( trace : (S,List[(L,S)]) ) = 
   {
     println("=================================================================================================================================")
-    println("Error in state: " + trace._2.last._2)
+    println("Error in state: " + statesMap.getOrElse(trace._2.last._2, 0))
     
-    logger.log("--------------------------------------------------------------------------------------------------------------------------------------------")
+    logger.log("------------------------------------------------------------------------------------------------------------------------------")
+    logger.log("state: " + statesMap.getOrElse(trace._1, 0).toString())
     logger.log(trace._1.toString)
     
     trace._2 foreach { case (l,s) => {
-      logger.log("  ->->->->->->->->->->->->->->->-> msg:" + l + " ->->->->->->->->->->->->->->->->");
+      logger.log("->->->->->->->->->->->->->->->-> msg:" + l + " ->->->->->->->->->->->->->->->->");
+      logger.log("state: " + statesMap.getOrElse(s, 0).toString())
       logger.log(s.toString)
     } }
   }
