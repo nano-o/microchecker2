@@ -309,4 +309,10 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
     }
     return statesMap.head._1
   }
+  
+  def getIndex(s: S) : Int = 
+  {
+    val index = statesMap.getOrElse(s, 0)
+    index
+  }
 }

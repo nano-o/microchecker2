@@ -176,9 +176,10 @@ class PaxosLTS extends LTS[mp_state_ext[Int, Unit], mp_action[Int]] {
   
   override def constraints = Set(s => ballot_constraint(s, bal_bound), s => inst_constraint(s, inst_bound));
   
-  def printDiff(node1: MultiPaxos4.mp_state_ext[Int, Unit], node2: MultiPaxos4.mp_state_ext[Int, Unit]) = 
+  def printDiff(index1: Int, node1: MultiPaxos4.mp_state_ext[Int, Unit], index2:Int, node2: MultiPaxos4.mp_state_ext[Int, Unit]) = 
   {
     println("----------------------------------------------------------State Difference-------------------------------------------------------------") 
+    println("previous state: " + index1 + "  ->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->   succeeding state:" + index2);
     node1 match {
         case MultiPaxos4.mp_state_exta(node_states, network, more) =>
           {

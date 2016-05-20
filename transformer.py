@@ -7,9 +7,9 @@ print('=====================================================================')
 def scalaEquals(classname, arglist, argString):
   eString = argString
   if classname.startswith('seta') or classname.startswith('coset'):
-    eString = ' && (Set(' + arglist[0] + ') == Set(that.' + arglist[0] + '))'
+    eString = ' && (' + arglist[0] + '.toSet == that.' + arglist[0] + '.toSet)'
   elif classname.startswith('finfun_update_code'):
-    eString = ' && (finfun_to_set(this) == finfun_to_set(that) && finfun_constv(this) == finfun_constv(that))'
+    eString = ' && (setFinFun == finfun_to_set(that, finfun_to_dom(that)) && finfun_constv(this) == finfun_constv(that))'
   elif classname.startswith('acc_state') or classname.startswith('mp_state'):
     eString = ''
     for i in range(0, len(arglist) - 1):
@@ -19,17 +19,16 @@ def scalaEquals(classname, arglist, argString):
 def scalaHash(classname, arglist, hashString):
   hString = hashString
   if len(arglist) == 1:
+    hString = arglist[0] + '.hashCode()'
     if classname.startswith('seta') or classname.startswith('coset'):
-      hString = 'Set(' + arglist[0] + ').hashCode'
-    else:
-      hString = arglist[0] + '.hashCode'
+      hString = arglist[0] + '.toSet.hashCode()'
   else:
     if classname.startswith('finfun_update_code'):
-      hString = '  41 * ( 41 + finfun_constv(this).hashCode()) + finfun_to_set(this).hashCode()'
+      hString = '  41 * ( 41 + finfun_constv(this).hashCode()) + setFinFun.hashCode()'
     elif classname.startswith('acc_state') or classname.startswith('mp_state'):
       hString = '1'
       for i in range(0, len(arglist) - 1):
-        hString = '  41 * (' + hString + ') + ' + arglist[i] + '.hashCode'
+        hString = '  41 * (' + hString + ') + ' + arglist[i] + '.hashCode()'
   return hString
 
 def scalaToString(classname, arglist):
@@ -44,7 +43,7 @@ def scalaToString(classname, arglist):
   elif classname.startswith('finfun_const'):
     tString = '"[default |-> " + ' + arglist[0] + '.toString() + "]"'
   elif classname.startswith('finfun_update_code'):
-    tString = '"[" + ' + arglist[1] + '.toString() + " |-> " + ' + arglist[2] + '.toString() + "]" + ' + arglist[0] + '.toString()'
+    tString = 'print_finfun_set(setFinFun) + "[default |-> " + finfun_constv(' + arglist[0] + ').toString() + "]"'
   elif classname.startswith('seta') or classname.startswith('coset'):
     tString = arglist[0] + '.mkString("{",",","}")'
   elif classname.startswith('Abs_fset'):
@@ -103,15 +102,17 @@ while line:
         argElem = argAll[i].split(",")
         arglist.append(argElem[len(argElem) - 1].strip())
         argString += ' && this.' + arglist[i] + ' == that.' + arglist[i]
-        hashString = '  41 * (' + hashString + ') + ' + arglist[i] + '.hashCode'
+        hashString = '  41 * (' + hashString + ') + ' + arglist[i] + '.hashCode()'
 
+      if "finfun_update_code" in classname:
+        nfile.write('  val setFinFun = finfun_to_set(this, finfun_to_dom(this))\n')
       nfile.write('  override def equals(other: Any) = other match {\n    case that:' + classname + ' => (that.isInstanceOf[' + classname +'])' + scalaEquals(subclassname, arglist, argString)
         + '\n    case _ => false\n  }\n')
       nfile.write('  override def toString = ' + scalaToString(subclassname, arglist) + '\n')
       nfile.write('  override def hashCode : Int = ' + scalaHash(subclassname, arglist, hashString) + '\n')
     nfile.write('}\n')
     if "finfun_update_code" in classname:
-      nfile.write('\n\ndef finfun_to_set[A, B](x0: finfun[A, B]): Set[(A,B)] = x0 match {\n  case finfun_update_code(f, a, b) => (\n    if (eq[B](b, finfun_constv[A, B](f)))\n      finfun_to_set[A, B](f) - Tuple2(a,b)\n    else\n      finfun_to_set[A, B](f)) + Tuple2(a,b)\n  case finfun_const(c) => Set()\n}\n\ndef finfun_constv[A, B](x0: finfun[A, B]): B = x0 match {\n  case finfun_update_code(f, a, b) => finfun_constv[A, B](f)\n  case finfun_const(c) => c\n}\n')
+      nfile.write('\ndef finfun_to_dom[A, B](x0: finfun[A, B]): Set[A] = x0 match {\n  case finfun_update_code(f, a, b) => (\n    if (eq[B](b, finfun_constv[A, B](f)))\n      finfun_to_dom[A, B](f) - a\n    else\n      finfun_to_dom[A, B](f) + a)\n  case finfun_const(c) => Set()\n}\n\ndef finfun_to_set[A, B](x0: finfun[A, B], domA: Set[A]): Set[(A,B)] = {\n  var setFinFun: Set[(A,B)] = Set()\n  domA.foreach { a => setFinFun += Tuple2(a, finfun_apply(x0, a)) }\n  setFinFun\n}\n\ndef print_finfun_set[A,B](setfinfun: Set[(A,B)]): String = {\n  var strfinfun : String = ""\n  setfinfun.foreach { case (a,b) => (\n      strfinfun += "[" + a.toString() + " |-> " + b.toString() + "]"\n    )}\n  strfinfun\n}\n\ndef finfun_constv[A, B](x0: finfun[A, B]): B = x0 match {\n  case finfun_update_code(f, a, b) => finfun_constv[A, B](f)\n  case finfun_const(c) => c\n}\n')
   elif "implicit def equal_nat" in line:
     nfile.write("implicit def equal_t[A] : equal[A] = new equal[A] {\n  val `MicroCheckerLib.equal` = (a : A, b: A) => a == b\n}\n\n")
     nfile.write(line)

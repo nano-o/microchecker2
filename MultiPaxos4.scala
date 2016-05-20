@@ -10,7 +10,7 @@ final case class Nat(a: BigInt) extends nat
     case _ => false
   }
   override def toString = a.toString()
-  override def hashCode : Int = a.hashCode
+  override def hashCode : Int = a.hashCode()
 }
 
 def integer_of_nat(x0: nat): BigInt = x0 match {
@@ -84,7 +84,7 @@ final case class phantoma[B, A](a: B) extends phantom[A, B]
     case _ => false
   }
   override def toString = "phantoma(" + a.toString() + ")"
-  override def hashCode : Int = a.hashCode
+  override def hashCode : Int = a.hashCode()
 }
 
 def finite_UNIV_nata: phantom[nat, Boolean] = phantoma[Boolean, nat](false)
@@ -146,27 +146,41 @@ final case class finfun_const[B, A](a: B) extends finfun[A, B]
     case _ => false
   }
   override def toString = "[default |-> " + a.toString() + "]"
-  override def hashCode : Int = a.hashCode
+  override def hashCode : Int = a.hashCode()
 }
 final case class finfun_update_code[A, B](a: finfun[A, B], b: A, c: B) extends
   finfun[A, B]
 {
+  val setFinFun = finfun_to_set(this, finfun_to_dom(this))
   override def equals(other: Any) = other match {
-    case that:finfun_update_code[A,B] => (that.isInstanceOf[finfun_update_code[A,B]]) && (finfun_to_set(this) == finfun_to_set(that) && finfun_constv(this) == finfun_constv(that))
+    case that:finfun_update_code[A,B] => (that.isInstanceOf[finfun_update_code[A,B]]) && (setFinFun == finfun_to_set(that, finfun_to_dom(that)) && finfun_constv(this) == finfun_constv(that))
     case _ => false
   }
-  override def toString = "[" + b.toString() + " |-> " + c.toString() + "]" + a.toString()
-  override def hashCode : Int =   41 * ( 41 + finfun_constv(this).hashCode()) + finfun_to_set(this).hashCode()
+  override def toString = print_finfun_set(setFinFun) + "[default |-> " + finfun_constv(a).toString() + "]"
+  override def hashCode : Int =   41 * ( 41 + finfun_constv(this).hashCode()) + setFinFun.hashCode()
 }
 
-
-def finfun_to_set[A, B](x0: finfun[A, B]): Set[(A,B)] = x0 match {
+def finfun_to_dom[A, B](x0: finfun[A, B]): Set[A] = x0 match {
   case finfun_update_code(f, a, b) => (
     if (eq[B](b, finfun_constv[A, B](f)))
-      finfun_to_set[A, B](f) - Tuple2(a,b)
+      finfun_to_dom[A, B](f) - a
     else
-      finfun_to_set[A, B](f)) + Tuple2(a,b)
+      finfun_to_dom[A, B](f) + a)
   case finfun_const(c) => Set()
+}
+
+def finfun_to_set[A, B](x0: finfun[A, B], domA: Set[A]): Set[(A,B)] = {
+  var setFinFun: Set[(A,B)] = Set()
+  domA.foreach { a => setFinFun += Tuple2(a, finfun_apply(x0, a)) }
+  setFinFun
+}
+
+def print_finfun_set[A,B](setfinfun: Set[(A,B)]): String = {
+  var strfinfun : String = ""
+  setfinfun.foreach { case (a,b) => (
+      strfinfun += "[" + a.toString() + " |-> " + b.toString() + "]"
+    )}
+  strfinfun
 }
 
 def finfun_constv[A, B](x0: finfun[A, B]): B = x0 match {
@@ -248,7 +262,7 @@ final case class Bit0(a: num) extends num
     case _ => false
   }
   override def toString = "Bit0(" + a.toString() + ")"
-  override def hashCode : Int = a.hashCode
+  override def hashCode : Int = a.hashCode()
 }
 final case class Bit1(a: num) extends num
 {
@@ -257,7 +271,7 @@ final case class Bit1(a: num) extends num
     case _ => false
   }
   override def toString = "Bit1(" + a.toString() + ")"
-  override def hashCode : Int = a.hashCode
+  override def hashCode : Int = a.hashCode()
 }
 
 def one_nat: nat = Nat(BigInt(1))
@@ -388,20 +402,20 @@ abstract sealed class set[A]
 final case class seta[A](a: List[A]) extends set[A]
 {
   override def equals(other: Any) = other match {
-    case that:seta[A] => (that.isInstanceOf[seta[A]]) && (Set(a) == Set(that.a))
+    case that:seta[A] => (that.isInstanceOf[seta[A]]) && (a.toSet == that.a.toSet)
     case _ => false
   }
   override def toString = a.mkString("{",",","}")
-  override def hashCode : Int = Set(a).hashCode
+  override def hashCode : Int = a.toSet.hashCode()
 }
 final case class coset[A](a: List[A]) extends set[A]
 {
   override def equals(other: Any) = other match {
-    case that:coset[A] => (that.isInstanceOf[coset[A]]) && (Set(a) == Set(that.a))
+    case that:coset[A] => (that.isInstanceOf[coset[A]]) && (a.toSet == that.a.toSet)
     case _ => false
   }
   override def toString = a.mkString("{",",","}")
-  override def hashCode : Int = Set(a).hashCode
+  override def hashCode : Int = a.toSet.hashCode()
 }
 
 abstract sealed class fset[A]
@@ -412,7 +426,7 @@ final case class Abs_fset[A](a: set[A]) extends fset[A]
     case _ => false
   }
   override def toString = a.toString()
-  override def hashCode : Int = a.hashCode
+  override def hashCode : Int = a.hashCode()
 }
 
 abstract sealed class nibble
@@ -569,7 +583,7 @@ final case class Char(a: nibble, b: nibble) extends char
     case _ => false
   }
   override def toString = "Char(" + a.toString() + ", " + b.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (1) + a.hashCode) + b.hashCode
+  override def hashCode : Int =   41 * (  41 * (1) + a.hashCode()) + b.hashCode()
 }
 
 def id[A]: A => A = ((x: A) => x)
@@ -902,7 +916,7 @@ final case class Cmd[A](a: A) extends cmd[A]
     case _ => false
   }
   override def toString = "Cmd(" + a.toString() + ")"
-  override def hashCode : Int = a.hashCode
+  override def hashCode : Int = a.hashCode()
 }
 final case class NoOp[A]() extends cmd[A]
 {
@@ -968,7 +982,7 @@ final case class Phase1a[A](a: MicroCheckerLib.nat, b: MicroCheckerLib.nat)
     case _ => false
   }
   override def toString = "Phase1a(" + a.toString() + ", " + b.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (1) + a.hashCode) + b.hashCode
+  override def hashCode : Int =   41 * (  41 * (1) + a.hashCode()) + b.hashCode()
 }
 final case class
   Phase1b[A](a: MicroCheckerLib.finfun[MicroCheckerLib.nat,
@@ -981,7 +995,7 @@ Option[(cmd[A], MicroCheckerLib.nat)]],
     case _ => false
   }
   override def toString = "Phase1b(" + a.toString() + ", " + b.toString() + ", " + c.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (  41 * (1) + a.hashCode) + b.hashCode) + c.hashCode
+  override def hashCode : Int =   41 * (  41 * (  41 * (1) + a.hashCode()) + b.hashCode()) + c.hashCode()
 }
 final case class
   Phase2a[A](a: MicroCheckerLib.nat, b: MicroCheckerLib.nat, c: cmd[A],
@@ -993,7 +1007,7 @@ final case class
     case _ => false
   }
   override def toString = "Phase2a(" + a.toString() + ", " + b.toString() + ", " + c.toString() + ", " + d.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (  41 * (  41 * (1) + a.hashCode) + b.hashCode) + c.hashCode) + d.hashCode
+  override def hashCode : Int =   41 * (  41 * (  41 * (  41 * (1) + a.hashCode()) + b.hashCode()) + c.hashCode()) + d.hashCode()
 }
 final case class
   Phase2b[A](a: MicroCheckerLib.nat, b: MicroCheckerLib.nat,
@@ -1005,7 +1019,7 @@ final case class
     case _ => false
   }
   override def toString = "Phase2b(" + a.toString() + ", " + b.toString() + ", " + c.toString() + ", " + d.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (  41 * (  41 * (1) + a.hashCode) + b.hashCode) + c.hashCode) + d.hashCode
+  override def hashCode : Int =   41 * (  41 * (  41 * (  41 * (1) + a.hashCode()) + b.hashCode()) + c.hashCode()) + d.hashCode()
 }
 final case class Vote[A](a: MicroCheckerLib.nat, b: cmd[A]) extends msg[A]
 {
@@ -1014,7 +1028,7 @@ final case class Vote[A](a: MicroCheckerLib.nat, b: cmd[A]) extends msg[A]
     case _ => false
   }
   override def toString = "Vote(" + a.toString() + ", " + b.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (1) + a.hashCode) + b.hashCode
+  override def hashCode : Int =   41 * (  41 * (1) + a.hashCode()) + b.hashCode()
 }
 final case class Fwd[A](a: A) extends msg[A]
 {
@@ -1023,7 +1037,7 @@ final case class Fwd[A](a: A) extends msg[A]
     case _ => false
   }
   override def toString = "Fwd(" + a.toString() + ")"
-  override def hashCode : Int = a.hashCode
+  override def hashCode : Int = a.hashCode()
 }
 
 def equal_msg[A : MicroCheckerLib.equal](x0: msg[A], x1: msg[A]): Boolean =
@@ -1089,7 +1103,7 @@ final case class
     case _ => false
   }
   override def toString = "Packet(" + a.toString() + ", " + b.toString() + ", " + c.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (  41 * (1) + a.hashCode) + b.hashCode) + c.hashCode
+  override def hashCode : Int =   41 * (  41 * (  41 * (1) + a.hashCode()) + b.hashCode()) + c.hashCode()
 }
 
 def equal_packeta[A : MicroCheckerLib.equal](x0: packet[A], x1: packet[A]):
@@ -1139,7 +1153,7 @@ final case class
     case _ => false
   }
   override def toString = "id: " + a.toString() + "    leader: " + b.toString() + ",    acceptors: " + c.toString() + ",    ballot: " + d.toString() + ",    decided: " + e.toString() + ",    vote: " + f.toString() + ",    last_ballot: " + g.toString() + "\n" + "    onebs: " + h.toString() + ",    twobs: " + i.toString() + "\n" + "    next_inst: " + j.toString() + ",    last_decision: " + k.toString() + ",    working_instances: " + l.toString() + ",    commit_buffer: " + m.toString() + ",    last_commited: " + n.toString() + ",    snapshot_reference: " + o.toString() + ",    snapshot_proposal: " + p.toString() + "\n"
-  override def hashCode : Int =   41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (1) + a.hashCode) + b.hashCode) + c.hashCode) + d.hashCode) + e.hashCode) + f.hashCode) + g.hashCode) + h.hashCode) + i.hashCode) + j.hashCode) + k.hashCode) + l.hashCode) + m.hashCode) + n.hashCode) + o.hashCode) + p.hashCode
+  override def hashCode : Int =   41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (  41 * (1) + a.hashCode()) + b.hashCode()) + c.hashCode()) + d.hashCode()) + e.hashCode()) + f.hashCode()) + g.hashCode()) + h.hashCode()) + i.hashCode()) + j.hashCode()) + k.hashCode()) + l.hashCode()) + m.hashCode()) + n.hashCode()) + o.hashCode()) + p.hashCode()
 }
 
 def equal_acc_state_exta[A : MicroCheckerLib.equal,
@@ -1211,7 +1225,7 @@ final case class
     case _ => false
   }
   override def toString = "Receive_fwd(" + a.toString() + ", " + b.toString() + ", " + c.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (  41 * (1) + a.hashCode) + b.hashCode) + c.hashCode
+  override def hashCode : Int =   41 * (  41 * (  41 * (1) + a.hashCode()) + b.hashCode()) + c.hashCode()
 }
 final case class Propose[A](a: MicroCheckerLib.nat, b: cmd[A]) extends
   mp_action[A]
@@ -1221,7 +1235,7 @@ final case class Propose[A](a: MicroCheckerLib.nat, b: cmd[A]) extends
     case _ => false
   }
   override def toString = "Propose(" + a.toString() + ", " + b.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (1) + a.hashCode) + b.hashCode
+  override def hashCode : Int =   41 * (  41 * (1) + a.hashCode()) + b.hashCode()
 }
 final case class Send_1as[A](a: MicroCheckerLib.nat) extends mp_action[A]
 {
@@ -1230,7 +1244,7 @@ final case class Send_1as[A](a: MicroCheckerLib.nat) extends mp_action[A]
     case _ => false
   }
   override def toString = "Send_1as(" + a.toString() + ")"
-  override def hashCode : Int = a.hashCode
+  override def hashCode : Int = a.hashCode()
 }
 final case class
   Receive_1a_send_1b[A](a: MicroCheckerLib.nat, b: MicroCheckerLib.nat,
@@ -1242,7 +1256,7 @@ final case class
     case _ => false
   }
   override def toString = "Receive_1a_send_1b(" + a.toString() + ", " + b.toString() + ", " + c.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (  41 * (1) + a.hashCode) + b.hashCode) + c.hashCode
+  override def hashCode : Int =   41 * (  41 * (  41 * (1) + a.hashCode()) + b.hashCode()) + c.hashCode()
 }
 final case class
   Receive_1b[A](a: MicroCheckerLib.nat, b: MicroCheckerLib.nat,
@@ -1256,7 +1270,7 @@ final case class
     case _ => false
   }
   override def toString = "Receive_1b(" + a.toString() + ", " + b.toString() + ", " + c.toString() + ", " + d.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (  41 * (  41 * (1) + a.hashCode) + b.hashCode) + c.hashCode) + d.hashCode
+  override def hashCode : Int =   41 * (  41 * (  41 * (  41 * (1) + a.hashCode()) + b.hashCode()) + c.hashCode()) + d.hashCode()
 }
 final case class
   Receive_2a_send_2b[A](a: MicroCheckerLib.nat, b: MicroCheckerLib.nat,
@@ -1269,7 +1283,7 @@ final case class
     case _ => false
   }
   override def toString = "Receive_2a_send_2b(" + a.toString() + ", " + b.toString() + ", " + c.toString() + ", " + d.toString() + ", " + e.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (  41 * (  41 * (  41 * (1) + a.hashCode) + b.hashCode) + c.hashCode) + d.hashCode) + e.hashCode
+  override def hashCode : Int =   41 * (  41 * (  41 * (  41 * (  41 * (1) + a.hashCode()) + b.hashCode()) + c.hashCode()) + d.hashCode()) + e.hashCode()
 }
 final case class
   Receive_2b[A](a: MicroCheckerLib.nat, b: MicroCheckerLib.nat,
@@ -1281,7 +1295,7 @@ final case class
     case _ => false
   }
   override def toString = "Receive_2b(" + a.toString() + ", " + b.toString() + ", " + c.toString() + ", " + d.toString() + ", " + e.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (  41 * (  41 * (  41 * (1) + a.hashCode) + b.hashCode) + c.hashCode) + d.hashCode) + e.hashCode
+  override def hashCode : Int =   41 * (  41 * (  41 * (  41 * (  41 * (1) + a.hashCode()) + b.hashCode()) + c.hashCode()) + d.hashCode()) + e.hashCode()
 }
 final case class
   Learn[A](a: MicroCheckerLib.nat, b: MicroCheckerLib.nat, c: cmd[A])
@@ -1292,7 +1306,7 @@ final case class
     case _ => false
   }
   override def toString = "Learn(" + a.toString() + ", " + b.toString() + ", " + c.toString() + ")"
-  override def hashCode : Int =   41 * (  41 * (  41 * (1) + a.hashCode) + b.hashCode) + c.hashCode
+  override def hashCode : Int =   41 * (  41 * (  41 * (1) + a.hashCode()) + b.hashCode()) + c.hashCode()
 }
 
 abstract sealed class mp_state_ext[A, B]
@@ -1307,7 +1321,7 @@ final case class
     case _ => false
   }
   override def toString = "node_states:\n" + a.toString() + "\n" + "network: " + b.toString()
-  override def hashCode : Int =   41 * (  41 * (1) + a.hashCode) + b.hashCode
+  override def hashCode : Int =   41 * (  41 * (1) + a.hashCode()) + b.hashCode()
 }
 
 def acceptors[A, B](x0: acc_state_ext[A, B]):

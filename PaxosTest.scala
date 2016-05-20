@@ -16,14 +16,19 @@ class PaxosTest extends FlatSpec with Matchers {
 	        myMC.printTrace(trace); 
 	        println("=================================================================================================================================")
           var lastState = trace._1
+          var lastID = myMC.getIndex(lastState)
           l.log("------------------------------------------------------------------------------------------------------------------------------")
+          l.log("state: " + lastID)
           l.log(lastState.toString)
           
           trace._2 foreach { case (label,s) => {
             l.log("->->->->->->->->->->->->->->->-> msg:" + label + " ->->->->->->->->->->->->->->->->");
-            myLTS.printDiff(lastState, s)
+            val newID = myMC.getIndex(s)
+            myLTS.printDiff(lastID, lastState, newID, s)
             lastState = s
+            lastID = newID
             l.log("------------------------------------------------------------------------------------------------------------------------------")
+            l.log("state: " + newID)
             l.log(s.toString)
           } }
 	        false}
