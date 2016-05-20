@@ -2301,9 +2301,13 @@ def receive_1b[A : MicroCheckerLib.equal](last_vs:
               }
             val s2: acc_state_ext[A, Unit] =
               leader_update[A, Unit](((_: Boolean) => true), s1)
+            val maxInst: MicroCheckerLib.nat = next_inst[A, Unit](s2)
             val s3: acc_state_ext[A, Unit] =
               next_inst_update[A, Unit](((_: MicroCheckerLib.nat) =>
-  MicroCheckerLib.plus_nat(max_i, MicroCheckerLib.one_nat)),
+  (if (MicroCheckerLib.less_nat(MicroCheckerLib.plus_nat(max_i,
+                  MicroCheckerLib.one_nat),
+                                 maxInst))
+    maxInst else MicroCheckerLib.plus_nat(max_i, MicroCheckerLib.one_nat))),
  s2)
             val twoa_is: List[MicroCheckerLib.nat] =
               MicroCheckerLib.upt(MicroCheckerLib.one_nat,
@@ -2494,7 +2498,7 @@ def mp_transit[A : MicroCheckerLib.equal,
       {
         val (new_s, ps):
               (acc_state_ext[A, Unit], MicroCheckerLib.fset[packet[A]])
-          = receive_2a[A](i, b, cm, dest,
+          = receive_2a[A](i, b, cm, l,
                            MicroCheckerLib.finfun_apply[MicroCheckerLib.nat,
                  acc_state_ext[A, Unit]](node_states[A, B](s), dest));
         update_state[A, B](dest, new_s, ps, s)

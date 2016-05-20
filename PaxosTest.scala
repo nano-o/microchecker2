@@ -6,7 +6,7 @@ import MultiPaxos4._
 
 class PaxosTest extends FlatSpec with Matchers {
   
-    val l : Logger = new Logger(true)
+    val l : Logger = new Logger(false)
     
 	  val myLTS : PaxosLTS = new PaxosLTS;
 		val myMC = new SimpleModelChecker[mp_state_ext[Int, Unit], mp_action[Int]](myLTS, l);

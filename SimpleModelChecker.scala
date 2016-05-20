@@ -46,7 +46,8 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
         if (!statesMap.contains(n)) 
         {
           statesMap += (n -> stateNum)
-          logger.debug(printState(stateNum, n))
+          logger.log(stateNum.toString());
+          //logger.debug(printState(stateNum, n))
           transitMap += (stateNum -> mutable.Set((l, sId)));
           stateNum += 1
         }
