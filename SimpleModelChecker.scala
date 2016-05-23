@@ -42,27 +42,27 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
     
     // give an id to each successor state and add the corresponding transition to the transition map
     trs foreach { 
-      case (l, n) => {
-        if (!statesMap.contains(n)) 
+      case (label, newstate) => {
+        if (!statesMap.contains(newstate)) 
         {
-          statesMap += (n -> stateNum)
+          statesMap += (newstate -> stateNum)
           logger.log(stateNum.toString());
           //logger.debug(printState(stateNum, n))
-          transitMap += (stateNum -> mutable.Set((l, sId)));
+          transitMap += (stateNum -> mutable.Set((label, sId)));
           stateNum += 1
         }
         else {
-          statesMap.get(n) match {
-            case Some(x) => 
-                transitMap.get(x) match {
-                  case Some(stransit) => stransit += new Tuple2(l, sId)
-                  case None => transitMap += (x -> mutable.Set((l, sId)))
+          statesMap.get(newstate) match {
+            case Some(nID) => 
+                transitMap.get(nID) match {
+                  case Some(stransit) => stransit += new Tuple2(label, sId)
+                  case None => transitMap += (nID -> mutable.Set((label, sId)))
                 }
             case None => throw new RuntimeException("should not happen")
           }
         }
-        if (!checkInvariants(n)) {
-          statesMap.get(n) match { case Some(n_) => return Error(n_) }
+        if (!checkInvariants(newstate)) {
+          statesMap.get(newstate) match { case Some(nID) => return Error(nID) }
         }
       }
     }
