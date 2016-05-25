@@ -26,6 +26,8 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
   case object Finished extends ExitStatus
   
   def dequeueState : ExitStatus = {
+    
+    
     val s = unexplored.find(_ => true) match { 
       case Some(s_) => s_
       case None => return Finished 
@@ -34,6 +36,7 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
       case Some(id) => id
       case None => throw new RuntimeException("should not happen")
     }
+    
     // set of successor transitions:
     val trs = lts.successors(s) filter { case (l,s) => filterStateP(s) }
     
@@ -46,7 +49,6 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
         if (!statesMap.contains(newstate)) 
         {
           statesMap += (newstate -> stateNum)
-          logger.log(stateNum.toString());
           //logger.debug(printState(stateNum, n))
           transitMap += (stateNum -> mutable.Set((label, sId)));
           stateNum += 1
@@ -88,7 +90,7 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
     // assign an identifier to each initial state
     initStates foreach { case s => {
     	if (!checkInvariants(s)) {
-    		logger.log(printState(stateNum, s))
+    		println(printState(stateNum, s))
     		return Some(s,List())
     	}
     	statesMap += (s -> stateNum)
@@ -100,11 +102,11 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
       dequeueState match {
         case Ok => ()
         case Finished => {
-          logger.log("The number of total states = " + statesMap.size)
+          println("The number of total states = " + statesMap.size)
           return None
         }
         case Error(n) => {
-          logger.log("The number of total states = " + statesMap.size)
+          println("The number of total states = " + statesMap.size)
           
           return Some(bfs(n))
         } 
@@ -278,8 +280,8 @@ class SimpleModelChecker[S, L](lts_ : LTS[S,L], l : Logger) extends ModelChecker
   
   override def printTrace( trace : (S,List[(L,S)]) ) = 
   {
-    println("=================================================================================================================================")
-    println("Error in state: " + statesMap.getOrElse(trace._2.last._2, 0))
+    logger.log("=================================================================================================================================")
+    logger.log("Error in state: " + statesMap.getOrElse(trace._2.last._2, 0))
     
     logger.log("------------------------------------------------------------------------------------------------------------------------------")
     logger.log("state: " + statesMap.getOrElse(trace._1, 0).toString())

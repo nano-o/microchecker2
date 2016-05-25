@@ -6,7 +6,7 @@ import MultiPaxos4._
 class PaxosLTS extends LTS[mp_state_ext[Int, Unit], mp_action[Int]] {
   
   val cmd = 2
-  val maxInst = 1
+  val maxInst = 2
   val maxAccID = 2
   val bal_bound = new Nat(1)
   val inst_bound = new Nat(maxInst + 1)
@@ -34,12 +34,14 @@ class PaxosLTS extends LTS[mp_state_ext[Int, Unit], mp_action[Int]] {
     }
   }
   
-  override def initialStates = Set(mp_start[Int]);
+  override def initialStates = 
+    {
+      initFreeLabel;
+      Set(mp_start[Int]);
+    }
   
   override def successors(s: mp_state_ext[Int, Unit]) : Set[(mp_action[Int],mp_state_ext[Int, Unit])] = 
   {
-    initFreeLabel;
-    
     var curAction = actionBuf.head
     var newStates : Set[(mp_action[Int], mp_state_ext[Int, Unit])] = Set();
     
@@ -176,10 +178,10 @@ class PaxosLTS extends LTS[mp_state_ext[Int, Unit], mp_action[Int]] {
   
   override def constraints = Set(s => ballot_constraint(s, bal_bound), s => inst_constraint(s, inst_bound));
   
-  def printDiff(index1: Int, node1: MultiPaxos4.mp_state_ext[Int, Unit], index2:Int, node2: MultiPaxos4.mp_state_ext[Int, Unit]) = 
+  def printDiff(index1: Int, node1: MultiPaxos4.mp_state_ext[Int, Unit], index2:Int, node2: MultiPaxos4.mp_state_ext[Int, Unit], l:Logger) = 
   {
-    println("----------------------------------------------------------State Difference-------------------------------------------------------------") 
-    println("previous state: " + index1 + "  ->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->   succeeding state:" + index2);
+    l.log("----------------------------------------------------------State Difference-------------------------------------------------------------") 
+    l.log("previous state: " + index1 + "  ->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->->   succeeding state:" + index2);
     node1 match {
         case MultiPaxos4.mp_state_exta(node_states, network, more) =>
           {
@@ -190,23 +192,23 @@ class PaxosLTS extends LTS[mp_state_ext[Int, Unit], mp_action[Int]] {
                         {
                           val astate_ext1 = finfun_apply(node_states, accs(i))
                           val astate_ext2 = finfun_apply(node_states2, accs(i))
-                          printAccStateDiff(accs(i), astate_ext1, astate_ext2)
+                          printAccStateDiff(accs(i), astate_ext1, astate_ext2, l)
                         }
                       }
-                    println("--------------------------------------------------------------------------------------------------------------------------------------------")
+                    l.log("--------------------------------------------------------------------------------------------------------------------------------------------")
                     if(network == network2)
-                      println("  network_packets: " + network);
+                      l.log("  network_packets: " + network);
                     else
                     {
-                      println("  network_packets1: " + network);
-                      println("  network_packets2: " + network2);
+                      l.log("  network_packets1: " + network);
+                      l.log("  network_packets2: " + network2);
                     }
                 }
           }
     }
   }
 
-  def printAccStateDiff(acc: Nat, astate_ext1: MultiPaxos4.acc_state_ext[Int, Unit], astate_ext2: MultiPaxos4.acc_state_ext[Int, Unit])
+  def printAccStateDiff(acc: Nat, astate_ext1: MultiPaxos4.acc_state_ext[Int, Unit], astate_ext2: MultiPaxos4.acc_state_ext[Int, Unit], l:Logger)
   {
     astate_ext1 match {
       case MultiPaxos4.acc_state_exta(accID, leader, acceptors, ballot, decided, vote, last_ballot, onebs,
@@ -218,20 +220,20 @@ class PaxosLTS extends LTS[mp_state_ext[Int, Unit], mp_action[Int]] {
             twobs2, next_inst2, last_decision2, working_instances2, commit_buffer2,
               last_commited2, snapshot_reference2, snapshot_proposal2, more2) =>
                 {
-                  println("accID: " + accID);
-                  if(!(leader == leader2)) println("        leader1: " + leader + "        leader2: " + leader2)
-                  if(!(acceptors == acceptors2)) println("        acceptors1: " + acceptors + "        acceptors2: " + acceptors2)
-                  if(!(ballot == ballot2)) println("        ballot1: " + ballot + "        ballot2: " + ballot2)
-                  if(!(decided == decided2)) println("        decided1: " + decided + "        decided2: " + decided2)
-                  if(!(vote == vote2)) println("        vote1: " + vote + "        vote2: " + vote2)
-                  if(!(last_ballot == last_ballot2)) println("        last_ballot1: " + last_ballot + "        last_ballot2: " + last_ballot2)
-                  if(!(onebs == onebs2)) println("        onebs1: " + onebs + "        onebs2: " + onebs2)
-                  if(!(twobs == twobs2)) println("        twobs1: " + twobs + "        twobs2: " + twobs2)
-                  if(!(next_inst == next_inst2)) println("        next_inst1: " + next_inst + "        next_inst2: " + next_inst2)
-                  if(!(last_decision == last_decision2)) println("        last_decision1: " + last_decision + "        last_decision2: " + last_decision2)
-                  if(!(working_instances == working_instances2)) println("        working_instances1: " + working_instances + "        working_instances2: " + working_instances2)
-                  if(!(commit_buffer == commit_buffer2)) println("        commit_buffer1: " + commit_buffer + "        commit_buffer2: " + commit_buffer2)
-                  if(!(last_commited == last_commited2)) println("        last_commited1: " + last_commited + "        last_commited2: " + last_commited2)
+                  l.log("accID: " + accID);
+                  if(!(leader == leader2)) l.log("        leader1: " + leader + "        leader2: " + leader2)
+                  if(!(acceptors == acceptors2)) l.log("        acceptors1: " + acceptors + "        acceptors2: " + acceptors2)
+                  if(!(ballot == ballot2)) l.log("        ballot1: " + ballot + "        ballot2: " + ballot2)
+                  if(!(decided == decided2)) l.log("        decided1: " + decided + "        decided2: " + decided2)
+                  if(!(vote == vote2)) l.log("        vote1: " + vote + "        vote2: " + vote2)
+                  if(!(last_ballot == last_ballot2)) l.log("        last_ballot1: " + last_ballot + "        last_ballot2: " + last_ballot2)
+                  if(!(onebs == onebs2)) l.log("        onebs1: " + onebs + "        onebs2: " + onebs2)
+                  if(!(twobs == twobs2)) l.log("        twobs1: " + twobs + "        twobs2: " + twobs2)
+                  if(!(next_inst == next_inst2)) l.log("        next_inst1: " + next_inst + "        next_inst2: " + next_inst2)
+                  if(!(last_decision == last_decision2)) l.log("        last_decision1: " + last_decision + "        last_decision2: " + last_decision2)
+                  if(!(working_instances == working_instances2)) l.log("        working_instances1: " + working_instances + "        working_instances2: " + working_instances2)
+                  if(!(commit_buffer == commit_buffer2)) l.log("        commit_buffer1: " + commit_buffer + "        commit_buffer2: " + commit_buffer2)
+                  if(!(last_commited == last_commited2)) l.log("        last_commited1: " + last_commited + "        last_commited2: " + last_commited2)
                 }
         }
       }
